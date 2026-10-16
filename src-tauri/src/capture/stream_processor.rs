@@ -3415,7 +3415,8 @@ mod tests {
     /// A heal tick from a capture (2026-10-05 17:31:46): target 5041, heal,
     /// actor 5041, effect 190000131, 7351. The effect is abnormal 19000013,
     /// Restore HP, which no skill owns: a full heal (5041's max HP was 6683
-    /// and went to full). Its code, 1900001, is no skill but has a name.
+    /// and went to full). Its code, 1900001, is passive regen — excluded from
+    /// HPS storage but still has a translatable name.
     #[test]
     fn a_heal_from_no_skill_has_a_name() {
         let data = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/data");
@@ -3426,8 +3427,12 @@ mod tests {
         let mut p = StreamProcessor::new(storage.clone(), skills.clone(), npcs);
         p.set_override_timestamp(Some(1_000));
         p.parse_dot_packet(&hex("130538b12701b127b601032c530bb739"));
-        let heal = &storage.get_heal_snapshot()[&5041][&(1_900_001, false)];
-        assert_eq!((heal.total_heal, heal.tick_count), (7351, 1));
+        // 1900001 is passive regen, excluded from HPS totals
+        let snap = storage.get_heal_snapshot();
+        assert!(
+            snap.get(&5041).and_then(|m| m.get(&(1_900_001, false))).is_none(),
+            "passive regen (1900001) must be excluded from heal storage"
+        );
         assert_eq!(skills.lookup_skill_name(1_900_001), "Restore HP");
         for lang in ["de", "es", "fr", "ja", "ko", "pt", "ru"] {
             let skills = SkillLookup::new();
